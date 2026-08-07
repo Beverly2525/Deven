@@ -1,4 +1,4 @@
-name: Fetch Faster Whisper Wheels
+name: Transcribe Podcast
 
 on:
   push:
@@ -9,22 +9,53 @@ permissions:
   contents: read
 
 jobs:
-  fetch-wheels:
+  transcribe:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
-      - name: Download offline Python wheels
+          python-version: '3.11'
+      - name: Install transcription tools
+        run: |
+          python -m pip install -q faster-whisper yt-dlp
+      - name: Download podcast audio
         run: |
           set -euxo pipefail
-          mkdir wheels
-          python -m pip download --only-binary=:all: --dest wheels faster-whisper
-          tar -czf faster-whisper-wheels-py313.tar.gz wheels
-      - name: Upload wheel archive
+          yt-dlp --no-playlist -f bestaudio -o 'podcast.%(ext)s' 'https://www.xiaoyuzhoufm.com/episode/66558f98c59d1e5757376534'
+          ls -lh podcast.*
+      - name: Transcribe Chinese audio
+        run: |
+          cat > transcribe.py <<'PY'
+          from faster_whisper import WhisperModel
+          import glob, json, time
+          audio = [p for p in glob.glob('podcast.*') if not p.endswith(('.txt','.json','.srt'))][0]
+          model = WhisperModel('small', device='cpu', compute_type='int8', cpu_threads=4)
+          segments, info = model.transcribe(audio, language='zh', beam_size=1, best_of=1,
+              vad_filter=True, vad_parameters={'min_silence_duration_ms': 500},
+              condition_on_previous_text=True)
+          rows=[]
+          def ts(sec):
+              ms=int(round(sec*1000)); h=ms//3600000; ms%=3600000; m=ms//60000; ms%=60000; s=ms//1000; ms%=1000
+              return f'{h:02d}:{m:02d}:{s:02d},{ms:03d}'
+          with open('podcast_transcript.txt','w',encoding='utf-8') as ft, open('podcast_transcript.srt','w',encoding='utf-8') as fs:
+              for i,seg in enumerate(segments,1):
+                  text=seg.text.strip()
+                  rows.append({'start':seg.start,'end':seg.end,'text':text})
+                  ft.write(f'[{seg.start:8.2f} --> {seg.end:8.2f}] {text}\n')
+                  fs.write(f'{i}\n{ts(seg.start)} --> {ts(seg.end)}\n{text}\n\n')
+          with open('podcast_transcript.json','w',encoding='utf-8') as f:
+              json.dump({'language':info.language,'duration':info.duration,'segments':rows},f,ensure_ascii=False,indent=2)
+          print('segments',len(rows),'duration',info.duration)
+          PY
+          python transcribe.py
+          wc -c podcast_transcript.*
+      - name: Upload transcript
         uses: actions/upload-artifact@v4
         with:
-          name: faster-whisper-wheels-py313
-          path: faster-whisper-wheels-py313.tar.gz
+          name: podcast-transcript
+          path: |
+            podcast_transcript.txt
+            podcast_transcript.srt
+            podcast_transcript.json
           retention-days: 1
-          compression-level: 0
