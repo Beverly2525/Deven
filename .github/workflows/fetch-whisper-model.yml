@@ -1,4 +1,4 @@
-name: Fetch Whisper Model
+name: Fetch Faster Whisper Model
 
 on:
   push:
@@ -12,19 +12,28 @@ jobs:
   fetch-model:
     runs-on: ubuntu-latest
     steps:
-      - name: Download multilingual Whisper model
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download CTranslate2 multilingual model
         run: |
           set -euxo pipefail
-          curl -L --fail --retry 5 --retry-delay 10 \
-            -o ggml-tiny-q5_1.bin \
-            https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny-q5_1.bin
-          test -s ggml-tiny-q5_1.bin
-          sha256sum ggml-tiny-q5_1.bin > SHA256SUMS.txt
-          zip -9 whisper-tiny-q5_1.zip ggml-tiny-q5_1.bin SHA256SUMS.txt
+          pip install -q 'huggingface_hub[cli]'
+          python - <<'PY'
+          from huggingface_hub import snapshot_download
+          snapshot_download(
+              repo_id='Systran/faster-whisper-tiny',
+              local_dir='faster-whisper-tiny',
+              local_dir_use_symlinks=False,
+          )
+          PY
+          rm -rf faster-whisper-tiny/.cache
+          tar -czf faster-whisper-tiny.tar.gz faster-whisper-tiny
+          test -s faster-whisper-tiny.tar.gz
       - name: Upload model archive
         uses: actions/upload-artifact@v4
         with:
-          name: whisper-tiny-q5_1
-          path: whisper-tiny-q5_1.zip
+          name: faster-whisper-tiny
+          path: faster-whisper-tiny.tar.gz
           retention-days: 1
           compression-level: 0
