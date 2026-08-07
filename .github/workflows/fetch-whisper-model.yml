@@ -1,4 +1,4 @@
-name: Fetch Faster Whisper Model
+name: Fetch Faster Whisper Wheels
 
 on:
   push:
@@ -9,31 +9,22 @@ permissions:
   contents: read
 
 jobs:
-  fetch-model:
+  fetch-wheels:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Download CTranslate2 multilingual model
+      - name: Download offline Python wheels
         run: |
           set -euxo pipefail
-          pip install -q 'huggingface_hub[cli]'
-          python - <<'PY'
-          from huggingface_hub import snapshot_download
-          snapshot_download(
-              repo_id='Systran/faster-whisper-tiny',
-              local_dir='faster-whisper-tiny',
-              local_dir_use_symlinks=False,
-          )
-          PY
-          rm -rf faster-whisper-tiny/.cache
-          tar -czf faster-whisper-tiny.tar.gz faster-whisper-tiny
-          test -s faster-whisper-tiny.tar.gz
-      - name: Upload model archive
+          mkdir wheels
+          python -m pip download --only-binary=:all: --dest wheels faster-whisper
+          tar -czf faster-whisper-wheels.tar.gz wheels
+      - name: Upload wheel archive
         uses: actions/upload-artifact@v4
         with:
-          name: faster-whisper-tiny
-          path: faster-whisper-tiny.tar.gz
+          name: faster-whisper-wheels
+          path: faster-whisper-wheels.tar.gz
           retention-days: 1
           compression-level: 0
