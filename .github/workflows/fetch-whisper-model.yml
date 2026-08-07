@@ -14,17 +14,17 @@ jobs:
     steps:
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.13'
       - name: Download offline Python wheels
         run: |
           set -euxo pipefail
           mkdir wheels
           python -m pip download --only-binary=:all: --dest wheels faster-whisper
-          tar -czf faster-whisper-wheels.tar.gz wheels
+          tar -czf faster-whisper-wheels-py313.tar.gz wheels
       - name: Upload wheel archive
         uses: actions/upload-artifact@v4
         with:
-          name: faster-whisper-wheels
-          path: faster-whisper-wheels.tar.gz
+          name: faster-whisper-wheels-py313
+          path: faster-whisper-wheels-py313.tar.gz
           retention-days: 1
           compression-level: 0
