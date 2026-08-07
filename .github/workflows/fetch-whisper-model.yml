@@ -26,7 +26,6 @@ jobs:
             'https://media.xyzcdn.net/ljeZTmehRpPYIc2jUGTm5gJ5I7OI.m4a'
           test -s podcast.m4a
           ls -lh podcast.m4a
-          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 podcast.m4a
       - name: Transcribe Chinese audio
         run: |
           cat > transcribe.py <<'PY'
